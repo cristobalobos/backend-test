@@ -151,37 +151,37 @@ pipeline {
                         credentialsId: "${KUBECONFIG_CREDENTIALS}",
                         variable: 'KUBECONFIG_FILE'
                     )]) {
-                        sh """
-                            # Copiar kubeconfig al workspace para que sea accesible por Docker
-                            cp \${KUBECONFIG_FILE} \${WORKSPACE}/kubeconfig
-                            chmod 600 \${WORKSPACE}/kubeconfig
+                        sh '''
+                            # Copiar kubeconfig al workspace
+                            cp "${KUBECONFIG_FILE}" "${WORKSPACE}/kubeconfig"
+                            chmod 600 "${WORKSPACE}/kubeconfig"
                             
                             # Actualizar la imagen del deployment
                             docker run --rm \
-                                -v \${WORKSPACE}/kubeconfig:/tmp/kubeconfig:ro \
+                                -v "${WORKSPACE}/kubeconfig:/tmp/kubeconfig:ro" \
                                 -e KUBECONFIG=/tmp/kubeconfig \
                                 bitnami/kubectl:latest \
-                                set image deployment/${K8S_DEPLOYMENT} \
-                                backend-nest=${GITHUB_IMAGE_NAME}:${BUILD_NUMBER} \
-                                -n ${K8S_NAMESPACE}
+                                set image deployment/backend-nest \
+                                backend-nest=ghcr.io/cristobalobos/backend-nest:''' + "${BUILD_NUMBER}" + ''' \
+                                -n clobos
                             
                             # Verificar el rollout
                             docker run --rm \
-                                -v \${WORKSPACE}/kubeconfig:/tmp/kubeconfig:ro \
+                                -v "${WORKSPACE}/kubeconfig:/tmp/kubeconfig:ro" \
                                 -e KUBECONFIG=/tmp/kubeconfig \
                                 bitnami/kubectl:latest \
-                                rollout status deployment/${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE} --timeout=5m
+                                rollout status deployment/backend-nest -n clobos --timeout=5m
                             
                             # Mostrar estado de los pods
                             docker run --rm \
-                                -v \${WORKSPACE}/kubeconfig:/tmp/kubeconfig:ro \
+                                -v "${WORKSPACE}/kubeconfig:/tmp/kubeconfig:ro" \
                                 -e KUBECONFIG=/tmp/kubeconfig \
                                 bitnami/kubectl:latest \
-                                get pods -n ${K8S_NAMESPACE} -l app=${K8S_DEPLOYMENT}
+                                get pods -n clobos -l app=backend-nest
                             
-                            # Limpiar archivo temporal
-                            rm -f \${WORKSPACE}/kubeconfig
-                        """
+                            # Limpiar
+                            rm -f "${WORKSPACE}/kubeconfig"
+                        '''
                     }
                     echo "✅ Deployment actualizado con imagen: ${GITHUB_IMAGE_NAME}:${BUILD_NUMBER}"
                 }
