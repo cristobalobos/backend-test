@@ -144,6 +144,12 @@ pipeline {
         }
 
         stage('Update Kubernetes Deployment') {
+            agent {
+                docker {
+                    image 'bitnami/kubectl:latest'
+                    args '-v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
             steps {
                 script {
                     echo '🚀 Actualizando deployment en Kubernetes...'
