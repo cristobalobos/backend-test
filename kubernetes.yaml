@@ -1,0 +1,125 @@
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: clobos
+  labels:
+    name: clobos
+    environment: production
+
+---
+# ConfigMap para USERNAME
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-nest-config
+  namespace: clobos
+  labels:
+    app: backend-nest
+data:
+  USERNAME: "Cristobal"
+
+---
+# Secret para API_KEY
+# NOTA: El valor debe estar codificado en base64
+# Para codificar: echo -n "tu-api-key-secreta" | base64
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-nest-secret
+  namespace: clobos
+  labels:
+    app: backend-nest
+type: Opaque
+data:
+  # Valor codificado en base64 para "mi-api-key-secreta-123"
+  # Para cambiar: echo -n "tu-valor" | base64
+  API_KEY: bWktYXBpLWtleS1zZWNyZXRhLTEyMw==
+
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-nest
+  namespace: clobos
+  labels:
+    app: backend-nest
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: backend-nest
+  template:
+    metadata:
+      labels:
+        app: backend-nest
+    spec:
+      containers:
+      - name: backend-nest
+        image: ghcr.io/cristobalobos/backend-nest:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 4000
+          name: http
+          protocol: TCP
+        env:
+        # Variable de entorno desde ConfigMap
+        - name: USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: backend-nest-config
+              key: USERNAME
+        # Variable de entorno desde Secret
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: backend-nest-secret
+              key: API_KEY
+        # Puerto opcional
+        - name: PORT
+          value: "4000"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 4000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 4000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-nest-service
+  namespace: clobos
+  labels:
+    app: backend-nest
+spec:
+  type: ClusterIP
+  ports:
+  - port: 4000
+    targetPort: 4000
+    protocol: TCP
+    name: http
+  selector:
+    app: backend-nest
+
