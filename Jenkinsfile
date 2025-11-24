@@ -144,12 +144,6 @@ pipeline {
         }
 
         stage('Update Kubernetes Deployment') {
-            agent {
-                docker {
-                    image 'bitnami/kubectl:latest'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock'
-                }
-            }
             steps {
                 script {
                     echo '🚀 Actualizando deployment en Kubernetes...'
@@ -158,18 +152,25 @@ pipeline {
                         variable: 'KUBECONFIG_FILE'
                     )]) {
                         sh """
-                            export KUBECONFIG=\${KUBECONFIG_FILE}
-                            
-                            # Actualizar la imagen del deployment con el build number
-                            kubectl set image deployment/${K8S_DEPLOYMENT} \
+                            docker run --rm \
+                                -v \${KUBECONFIG_FILE}:/tmp/kubeconfig:ro \
+                                -e KUBECONFIG=/tmp/kubeconfig \
+                                bitnami/kubectl:latest \
+                                set image deployment/${K8S_DEPLOYMENT} \
                                 backend-nest=${GITHUB_IMAGE_NAME}:${BUILD_NUMBER} \
                                 -n ${K8S_NAMESPACE}
                             
-                            # Verificar el rollout
-                            kubectl rollout status deployment/${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE} --timeout=5m
+                            docker run --rm \
+                                -v \${KUBECONFIG_FILE}:/tmp/kubeconfig:ro \
+                                -e KUBECONFIG=/tmp/kubeconfig \
+                                bitnami/kubectl:latest \
+                                rollout status deployment/${K8S_DEPLOYMENT} -n ${K8S_NAMESPACE} --timeout=5m
                             
-                            # Mostrar estado de los pods
-                            kubectl get pods -n ${K8S_NAMESPACE} -l app=${K8S_DEPLOYMENT}
+                            docker run --rm \
+                                -v \${KUBECONFIG_FILE}:/tmp/kubeconfig:ro \
+                                -e KUBECONFIG=/tmp/kubeconfig \
+                                bitnami/kubectl:latest \
+                                get pods -n ${K8S_NAMESPACE} -l app=${K8S_DEPLOYMENT}
                         """
                     }
                     echo "✅ Deployment actualizado con imagen: ${GITHUB_IMAGE_NAME}:${BUILD_NUMBER}"
