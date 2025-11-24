@@ -152,13 +152,25 @@ pipeline {
                         variable: 'KUBECONFIG_FILE'
                     )]) {
                         sh '''
-                            # Copiar kubeconfig al workspace
-                            cp "${KUBECONFIG_FILE}" "${WORKSPACE}/kubeconfig"
-                            chmod 600 "${WORKSPACE}/kubeconfig"
+                            # Verificar que KUBECONFIG_FILE es un archivo, no un directorio
+                            if [ -d "${KUBECONFIG_FILE}" ]; then
+                                echo "Error: KUBECONFIG_FILE es un directorio, buscando archivo config dentro..."
+                                KUBECONFIG_FILE="${KUBECONFIG_FILE}/config"
+                            fi
+                            
+                            # Copiar kubeconfig al workspace con nombre específico
+                            cp "${KUBECONFIG_FILE}" "${WORKSPACE}/kubeconfig-file"
+                            chmod 600 "${WORKSPACE}/kubeconfig-file"
+                            
+                            # Verificar que el archivo existe y no es un directorio
+                            if [ ! -f "${WORKSPACE}/kubeconfig-file" ]; then
+                                echo "Error: No se pudo copiar el archivo kubeconfig"
+                                exit 1
+                            fi
                             
                             # Actualizar la imagen del deployment
                             docker run --rm \
-                                -v "${WORKSPACE}/kubeconfig:/tmp/kubeconfig:ro" \
+                                -v "${WORKSPACE}/kubeconfig-file:/tmp/kubeconfig:ro" \
                                 -e KUBECONFIG=/tmp/kubeconfig \
                                 bitnami/kubectl:latest \
                                 set image deployment/backend-nest \
@@ -167,20 +179,20 @@ pipeline {
                             
                             # Verificar el rollout
                             docker run --rm \
-                                -v "${WORKSPACE}/kubeconfig:/tmp/kubeconfig:ro" \
+                                -v "${WORKSPACE}/kubeconfig-file:/tmp/kubeconfig:ro" \
                                 -e KUBECONFIG=/tmp/kubeconfig \
                                 bitnami/kubectl:latest \
                                 rollout status deployment/backend-nest -n clobos --timeout=5m
                             
                             # Mostrar estado de los pods
                             docker run --rm \
-                                -v "${WORKSPACE}/kubeconfig:/tmp/kubeconfig:ro" \
+                                -v "${WORKSPACE}/kubeconfig-file:/tmp/kubeconfig:ro" \
                                 -e KUBECONFIG=/tmp/kubeconfig \
                                 bitnami/kubectl:latest \
                                 get pods -n clobos -l app=backend-nest
                             
                             # Limpiar
-                            rm -f "${WORKSPACE}/kubeconfig"
+                            rm -f "${WORKSPACE}/kubeconfig-file"
                         '''
                     }
                     echo "✅ Deployment actualizado con imagen: ${GITHUB_IMAGE_NAME}:${BUILD_NUMBER}"
