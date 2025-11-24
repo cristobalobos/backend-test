@@ -2,6 +2,8 @@ pipeline {
     agent any
 
     environment {
+        // Node.js version
+        NODE_VERSION = '20'
         // Nombre de la imagen Docker
         IMAGE_NAME = 'cristobalobos/backend-nest'
         
@@ -23,6 +25,12 @@ pipeline {
 
     stages {
         stage('Install Dependencies') {
+            agent {
+                docker {
+                    image "node:${NODE_VERSION}-alpine"
+                    args '-v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
             steps {
                 script {
                     echo '📦 Instalando dependencias...'
@@ -33,6 +41,12 @@ pipeline {
         }
 
         stage('Testing') {
+            agent {
+                docker {
+                    image "node:${NODE_VERSION}-alpine"
+                    args '-v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
             steps {
                 script {
                     echo '🧪 Ejecutando tests...'
@@ -43,6 +57,12 @@ pipeline {
         }
 
         stage('Build') {
+            agent {
+                docker {
+                    image "node:${NODE_VERSION}-alpine"
+                    args '-v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
             steps {
                 script {
                     echo '🔨 Compilando aplicación...'
@@ -50,11 +70,17 @@ pipeline {
                     echo '✅ Build completado exitosamente'
                 }
             }
+            post {
+                success {
+                    stash includes: '**', name: 'workspace-files'
+                }
+            }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
+                    unstash 'workspace-files'
                     echo '🐳 Construyendo imagen Docker...'
                     def imageTag = "${IMAGE_NAME}:${BUILD_NUMBER}"
                     def imageTagLatest = "${IMAGE_NAME}:latest"
